@@ -1,0 +1,12 @@
+[general]
+name=QLayoutDesigner
+qgisMinimumVersion=3.34
+description=Automatic map layout generator for Qgis
+version=0.1
+author=Nikolas Sorkos
+eimail=nicksorkos@gmail.com
+about=Creates professional map layouts automatically
+category=Cartography
+icon=QLayoutDesigner.png
+experimental=True
+
