@@ -239,7 +239,7 @@ class QLayoutDesigner:
                     f"Scale : 1:{formatted_scale}"
                 )
 
-                numeric_scale.setFont(QFont("Times New Roman", 14))
+                numeric_scale.setFont(QFont("Times New Roman", 12))
                 numeric_scale.adjustSizeToText()
 
                 layout.addLayoutItem(numeric_scale)
@@ -313,7 +313,7 @@ class QLayoutDesigner:
                 f"Map view: {crs_text}"
             )
 
-            crs_label.setFont(QFont("Times New Roman", 14))
+            crs_label.setFont(QFont("Times New Roman", 10))
             crs_label.adjustSizeToText()
 
             layout.addLayoutItem(crs_label)
@@ -321,7 +321,7 @@ class QLayoutDesigner:
             crs_label.attemptMove(
                 QgsLayoutPoint(
                     10,
-                    190,
+                    188,
                     QgsUnitTypes.LayoutMillimeters
                 )
             )
@@ -334,7 +334,7 @@ class QLayoutDesigner:
                 f"Cartographic Editing: {settings['designer']}"
             )
 
-            designer_label.setFont(QFont("Times New Roman", 14))
+            designer_label.setFont(QFont("Times New Roman", 10))
             designer_label.adjustSizeToText()
 
             layout.addLayoutItem(designer_label)
@@ -357,7 +357,7 @@ class QLayoutDesigner:
                 f"Date: {date_text}"
             )
 
-            date_label.setFont(QFont("Times New Roman", 14))
+            date_label.setFont(QFont("Times New Roman", 10))
             date_label.adjustSizeToText()
 
             layout.addLayoutItem(date_label)
@@ -365,18 +365,26 @@ class QLayoutDesigner:
             date_label.attemptMove(
                 QgsLayoutPoint(
                     10,
-                    206,
+                    208,
                     QgsUnitTypes.LayoutMillimeters
                 )
             )
 
-            QMessageBox.information(
+            # =========================
+            # PREVIEW FIRST
+            # =========================
+            self.iface.openLayoutDesigner(layout)
+
+            reply = QMessageBox.question(
                 None,
                 "QLayout Designer",
-                f"The layout has been created successfully!\nName: {layout_name}"
+                "The layout has been created successfully.\n\nDo you want to export it to PDF now?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
             )
 
-            self.export_to_pdf(layout)
+            if reply == QMessageBox.Yes:
+                self.export_to_pdf(layout)
 
         except Exception as e:
             QMessageBox.critical(
