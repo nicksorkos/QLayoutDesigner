@@ -1,19 +1,23 @@
 import os
 from datetime import datetime
 
-from qgis.PyQt.QtWidgets import QAction, QMessageBox
+from .layout_dialog import LayoutSettingsDialog
+
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QFileDialog
 from qgis.PyQt.QtGui import QIcon, QFont
 
 from qgis.core import (
     QgsApplication,
     QgsProject,
     QgsPrintLayout,
+    QgsLayoutExporter,
     QgsLayoutItemMap,
     QgsLayoutItemLabel,
     QgsLayoutItemLegend,
     QgsLayoutItemScaleBar,
     QgsLayoutItemPicture,
     QgsLayoutItemMapGrid,
+    QgsLayoutItemPage,
     QgsLayoutPoint,
     QgsLayoutSize,
     QgsUnitTypes
@@ -36,7 +40,6 @@ class QLayoutDesigner:
         )
 
         self.action.triggered.connect(self.run)
-
         self.iface.addPluginToMenu("&QLayout Designer", self.action)
         self.iface.addToolBarIcon(self.action)
 
@@ -67,7 +70,63 @@ class QLayoutDesigner:
         map_item.grids().addGrid(grid)
         map_item.refresh()
 
+    def apply_layout_size(self, layout, layout_size):
+        page = layout.pageCollection().page(0)
+
+        if layout_size == "A4 Landscape":
+            page.setPageSize("A4", QgsLayoutItemPage.Landscape)
+
+        elif layout_size == "A4 Portrait":
+            page.setPageSize("A4", QgsLayoutItemPage.Portrait)
+
+        elif layout_size == "A3 Landscape":
+            page.setPageSize("A3", QgsLayoutItemPage.Landscape)
+
+        elif layout_size == "A3 Portrait":
+            page.setPageSize("A3", QgsLayoutItemPage.Portrait)
+
+    def export_to_pdf(self, layout):
+        pdf_path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Export Layout as PDF",
+            "",
+            "PDF Files (*.pdf)"
+        )
+
+        if not pdf_path:
+            return
+
+        if not pdf_path.lower().endswith(".pdf"):
+            pdf_path += ".pdf"
+
+        exporter = QgsLayoutExporter(layout)
+
+        result = exporter.exportToPdf(
+            pdf_path,
+            QgsLayoutExporter.PdfExportSettings()
+        )
+
+        if result == QgsLayoutExporter.Success:
+            QMessageBox.information(
+                None,
+                "Export Successful",
+                f"PDF exported:\n{pdf_path}"
+            )
+        else:
+            QMessageBox.warning(
+                None,
+                "Export Failed",
+                "Could not export PDF."
+            )
+
     def run(self):
+        dialog = LayoutSettingsDialog()
+
+        if dialog.exec_() != dialog.Accepted:
+            return
+
+        settings = dialog.get_values()
+
         project = QgsProject.instance()
         manager = project.layoutManager()
 
@@ -81,6 +140,11 @@ class QLayoutDesigner:
             layout.initializeDefaults()
             layout.setName(layout_name)
 
+            self.apply_layout_size(
+                layout,
+                settings["layout_size"]
+            )
+
             manager.addLayout(layout)
 
             # =========================
@@ -89,7 +153,7 @@ class QLayoutDesigner:
             map_item = QgsLayoutItemMap(layout)
             map_item.setRect(20, 20, 200, 120)
             map_item.setExtent(self.iface.mapCanvas().extent())
-            map_item.setScale(250000)
+            map_item.setScale(settings["scale"])
 
             layout.addLayoutItem(map_item)
 
@@ -109,13 +173,14 @@ class QLayoutDesigner:
                 )
             )
 
-            self.add_map_grid(map_item)
+            if settings["show_grid"]:
+                self.add_map_grid(map_item)
 
             # =========================
             # TITLE
             # =========================
             title = QgsLayoutItemLabel(layout)
-            title.setText("Map")
+            title.setText(settings["title"])
             title.setFont(QFont("Times New Roman", 20))
             title.adjustSizeToText()
 
@@ -132,107 +197,111 @@ class QLayoutDesigner:
             # =========================
             # NORTH ARROW
             # =========================
-            north_arrow = QgsLayoutItemPicture(layout)
+            if settings["show_north"]:
+                north_arrow = QgsLayoutItemPicture(layout)
 
-            north_arrow_path = os.path.join(
-                QgsApplication.svgPaths()[0],
-                "arrows",
-                "NorthArrow_01.svg"
-            )
-
-            if os.path.exists(north_arrow_path):
-                north_arrow.setPicturePath(north_arrow_path)
-
-            layout.addLayoutItem(north_arrow)
-
-            north_arrow.attemptMove(
-                QgsLayoutPoint(
-                    175,
-                    30,
-                    QgsUnitTypes.LayoutMillimeters
+                north_arrow_path = os.path.join(
+                    QgsApplication.svgPaths()[0],
+                    "arrows",
+                    "NorthArrow_01.svg"
                 )
-            )
 
-            north_arrow.attemptResize(
-                QgsLayoutSize(
-                    20,
-                    20,
-                    QgsUnitTypes.LayoutMillimeters
+                if os.path.exists(north_arrow_path):
+                    north_arrow.setPicturePath(north_arrow_path)
+
+                layout.addLayoutItem(north_arrow)
+
+                north_arrow.attemptMove(
+                    QgsLayoutPoint(
+                        175,
+                        30,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
                 )
-            )
+
+                north_arrow.attemptResize(
+                    QgsLayoutSize(
+                        20,
+                        20,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
+                )
 
             # =========================
             # NUMERIC SCALE
             # =========================
-            scale_value = 250000
-            formatted_scale = f"{scale_value:,}".replace(",", ".")
+            if settings["show_numeric_scale"]:
+                scale_value = settings["scale"]
+                formatted_scale = f"{scale_value:,}".replace(",", ".")
 
-            numeric_scale = QgsLayoutItemLabel(layout)
-            numeric_scale.setText(
-                f"Scale : 1:{formatted_scale}"
-            )
-
-            numeric_scale.setFont(QFont("Times New Roman", 14))
-            numeric_scale.adjustSizeToText()
-
-            layout.addLayoutItem(numeric_scale)
-
-            numeric_scale.attemptMove(
-                QgsLayoutPoint(
-                    10,
-                    164,
-                    QgsUnitTypes.LayoutMillimeters
+                numeric_scale = QgsLayoutItemLabel(layout)
+                numeric_scale.setText(
+                    f"Scale : 1:{formatted_scale}"
                 )
-            )
+
+                numeric_scale.setFont(QFont("Times New Roman", 14))
+                numeric_scale.adjustSizeToText()
+
+                layout.addLayoutItem(numeric_scale)
+
+                numeric_scale.attemptMove(
+                    QgsLayoutPoint(
+                        10,
+                        164,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
+                )
 
             # =========================
             # GRAPHIC SCALE BAR
             # =========================
-            scale_bar = QgsLayoutItemScaleBar(layout)
-            scale_bar.setStyle("Double Box")
-            scale_bar.setLinkedMap(map_item)
-            scale_bar.setUnits(QgsUnitTypes.DistanceMeters)
-            scale_bar.setNumberOfSegments(4)
-            scale_bar.setNumberOfSegmentsLeft(0)
-            scale_bar.setUnitsPerSegment(50)
-            scale_bar.setUnitLabel("m")
-            scale_bar.applyDefaultSize()
+            if settings["show_scale_bar"]:
+                scale_bar = QgsLayoutItemScaleBar(layout)
+                scale_bar.setStyle("Double Box")
+                scale_bar.setLinkedMap(map_item)
+                scale_bar.setUnits(QgsUnitTypes.DistanceMeters)
+                scale_bar.setNumberOfSegments(4)
+                scale_bar.setNumberOfSegmentsLeft(0)
+                scale_bar.setUnitsPerSegment(50)
+                scale_bar.setUnitLabel("m")
+                scale_bar.applyDefaultSize()
 
-            layout.addLayoutItem(scale_bar)
+                layout.addLayoutItem(scale_bar)
 
-            scale_bar.attemptMove(
-                QgsLayoutPoint(
-                    10,
-                    172,
-                    QgsUnitTypes.LayoutMillimeters
+                scale_bar.attemptMove(
+                    QgsLayoutPoint(
+                        10,
+                        172,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
                 )
-            )
 
             # =========================
             # LEGEND
             # =========================
-            legend = QgsLayoutItemLegend(layout)
-            legend.setTitle("Legend")
-            legend.setLinkedMap(map_item)
-            legend.setAutoUpdateModel(True)
+            if settings["show_legend"]:
+                legend = QgsLayoutItemLegend(layout)
+                legend.setTitle("Legend")
+                legend.setLinkedMap(map_item)
+                legend.setAutoUpdateModel(True)
 
-            layout.addLayoutItem(legend)
+                layout.addLayoutItem(legend)
 
-            legend.attemptMove(
-                QgsLayoutPoint(
-                    205,
-                    25,
-                    QgsUnitTypes.LayoutMillimeters
+                legend.attemptMove(
+                    QgsLayoutPoint(
+                        205,
+                        25,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
                 )
-            )
 
-            legend.attemptResize(
-                QgsLayoutSize(
-                    80,
-                    120,
-                    QgsUnitTypes.LayoutMillimeters
+                legend.attemptResize(
+                    QgsLayoutSize(
+                        80,
+                        120,
+                        QgsUnitTypes.LayoutMillimeters
+                    )
                 )
-            )
 
             # =========================
             # CRS LABEL
@@ -262,7 +331,7 @@ class QLayoutDesigner:
             # =========================
             designer_label = QgsLayoutItemLabel(layout)
             designer_label.setText(
-                "Cartographic Editing:"
+                f"Cartographic Editing: {settings['designer']}"
             )
 
             designer_label.setFont(QFont("Times New Roman", 14))
@@ -306,6 +375,8 @@ class QLayoutDesigner:
                 "QLayout Designer",
                 f"The layout has been created successfully!\nName: {layout_name}"
             )
+
+            self.export_to_pdf(layout)
 
         except Exception as e:
             QMessageBox.critical(
