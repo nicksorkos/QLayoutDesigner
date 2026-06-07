@@ -1,113 +1,153 @@
-# QLayoutDesigner
+# QLayout Designer
 
-Automatic Map Layout Generator Plugin for QGIS
+QLayout Designer is a QGIS plugin designed to automate the creation of professional map layouts.
 
-## Overview
+The plugin helps GIS professionals, cartographers, engineers and students generate map layouts quickly without manually placing every layout element.
 
-QLayoutDesigner is a QGIS plugin designed to automate the creation of professional cartographic layouts. The plugin generates a ready-to-use map layout directly from the active QGIS project, reducing the time required for repetitive cartographic tasks.
-
-The current version automatically creates:
-
-* Main map frame
-* Graphic scale bar
-* Numeric scale display
-* Map grid
-* Dynamic legend
-* Coordinate Reference System (CRS) information
-* Date information
-* Cartographic designer information
+---
 
 ## Features
 
 ### Automatic Layout Creation
 
-Generate a complete map layout with a single click.
+* Create new QGIS print layouts automatically
+* Unique layout naming
+* A4 Landscape
+* A4 Portrait
+* A3 Landscape
+* A3 Portrait
 
-### Dynamic Legend
+### Map Elements
 
-The legend is automatically populated using the layers currently loaded in the QGIS project.
+* Automatic map frame creation
+* Automatic north arrow insertion
+* Automatic legend generation
+* Automatic graphic scale bar
+* Automatic map title
 
-### Automatic Scale
+### Multi-Page Layouts
 
-The plugin automatically creates:
+* User-defined number of pages
+* Automatic page generation
+* Automatic sheet numbering (Blatt)
 
-* Numeric scale (e.g. 1:250.000)
-* Graphic scale bar
+### Dynamic Title Block
 
-### North Arrow
+The plugin automatically creates a professional title block including:
 
-A north arrow is automatically inserted into the layout.
+* AT/Vh-Bez
+* NL/Res
+* ONB
+* ASB
+* Planer
+* Datum
+* Maßstab
+* Bezugssystem
+* Blatt
 
-### Grid Generation
+All fields are configurable through the Layout Settings Dialog.
 
-Map grids and coordinate annotations can be generated automatically.
+### Layout Settings Dialog
 
-### Cartographic Metadata
+Users can define:
 
-The layout includes:
+* Map Title
+* Cartographic Designer
+* Scale
+* Layout Size
+* Number of Pages
+* ONB
+* ASB
+* SM Number
+* Sheet Information
+* Legend visibility
+* North Arrow visibility
+* Scale Bar visibility
 
-* CRS information
-* Date of creation
-* Cartographic designer details
+### Export
 
-## Requirements
+* Layout preview in QGIS Layout Designer
+* PDF export support
 
-* QGIS 3.34 or newer
-* Python 3.x
+---
 
 ## Installation
 
-1. Download the repository.
+1. Download or clone the repository
+
+```bash
+git clone https://github.com/nicksorkos/QLayoutDesigner.git
+```
+
 2. Copy the plugin folder into:
 
 ```text
-C:\Users\<USERNAME>\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\
+QGIS3/profiles/default/python/plugins/
 ```
 
-3. Open QGIS.
+3. Restart QGIS
+
 4. Enable the plugin from:
 
+```text
 Plugins → Manage and Install Plugins
+```
 
-5. Activate QLayoutDesigner.
-
-## Usage
-
-1. Open a QGIS project.
-2. Load the desired layers.
-3. Click the QLayoutDesigner button.
-4. A complete layout will be automatically generated.
+---
 
 ## Current Version
 
-Version: 0.2
+### v0.5
 
-## Roadmap
+Implemented:
 
-Future versions will include:
+* Layout Dialog
+* Multi-page layouts
+* Dynamic title block
+* Automatic page numbering
+* Dynamic metadata fields
+* GitHub integration
 
-* Automatic PDF export
-* Custom layout templates
-* Company branding support
-* Multiple layout formats (A4, A3, A2, A1)
-* Advanced legend management
-* Automatic map title generation
-* Batch layout creation
+---
+
+## Planned Features
+
+### v0.5.1
+
+* Map frame on every page
+* North arrow on every page
+* Legend on every page
+* Scale bar on every page
+
+### v0.6
+
+* Company logo support
+* Project name support
+* Client information
+* Improved title block templates
+
+### v0.7
+
+* Smart Legend
+* Automatic basemap filtering
+* Dynamic scale bar sizing
+
+### v1.0
+
+* QGIS Plugin Repository release
+* Professional engineering templates
+* Atlas generation support
+
+---
 
 ## Author
 
 Nikolaos Sorkos
 
-MSc GIS Candidate
+GIS | Cartography | QGIS Development
 
-Department of Geography
+---
 
 ## License
 
-This project is released under the GNU General Public License (GPL v3).
-
-## Acknowledgements
-
-Developed using the QGIS Python API (PyQGIS).
-
-QGIS® is a registered trademark of the QGIS Project.
+MIT License
