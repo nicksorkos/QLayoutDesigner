@@ -16,7 +16,6 @@ from qgis.core import (
     QgsLayoutItemLegend,
     QgsLayoutItemScaleBar,
     QgsLayoutItemPicture,
-    QgsLayoutItemMapGrid,
     QgsLayoutItemPage,
     QgsLayoutPoint,
     QgsLayoutSize,
@@ -57,33 +56,34 @@ class QLayoutDesigner:
 
         return final_name
 
-    def add_map_grid(self, map_item):
-        grid = QgsLayoutItemMapGrid("Auto Grid", map_item)
-
-        grid.setEnabled(True)
-        grid.setIntervalX(500)
-        grid.setIntervalY(500)
-        grid.setAnnotationEnabled(True)
-        grid.setAnnotationPrecision(0)
-        grid.setAnnotationFrameDistance(2)
-
-        map_item.grids().addGrid(grid)
-        map_item.refresh()
-
     def apply_layout_size(self, layout, layout_size):
         page = layout.pageCollection().page(0)
 
         if layout_size == "A4 Landscape":
             page.setPageSize("A4", QgsLayoutItemPage.Landscape)
-
         elif layout_size == "A4 Portrait":
             page.setPageSize("A4", QgsLayoutItemPage.Portrait)
-
         elif layout_size == "A3 Landscape":
             page.setPageSize("A3", QgsLayoutItemPage.Landscape)
-
         elif layout_size == "A3 Portrait":
             page.setPageSize("A3", QgsLayoutItemPage.Portrait)
+
+    def create_extra_pages(self, layout, settings):
+        page_collection = layout.pageCollection()
+
+        while page_collection.pageCount() < settings["page_count"]:
+            new_page = QgsLayoutItemPage(layout)
+
+            if settings["layout_size"] == "A4 Landscape":
+                new_page.setPageSize("A4", QgsLayoutItemPage.Landscape)
+            elif settings["layout_size"] == "A4 Portrait":
+                new_page.setPageSize("A4", QgsLayoutItemPage.Portrait)
+            elif settings["layout_size"] == "A3 Landscape":
+                new_page.setPageSize("A3", QgsLayoutItemPage.Landscape)
+            elif settings["layout_size"] == "A3 Portrait":
+                new_page.setPageSize("A3", QgsLayoutItemPage.Portrait)
+
+            page_collection.addPage(new_page)
 
     def export_to_pdf(self, layout):
         pdf_path, _ = QFileDialog.getSaveFileName(
@@ -119,6 +119,32 @@ class QLayoutDesigner:
                 "Could not export PDF."
             )
 
+    def create_map_item(self, layout, settings):
+        map_item = QgsLayoutItemMap(layout)
+        map_item.setRect(20, 20, 200, 120)
+        map_item.setExtent(self.iface.mapCanvas().extent())
+        map_item.setScale(settings["scale"])
+
+        layout.addLayoutItem(map_item)
+
+        map_item.attemptMove(
+            QgsLayoutPoint(
+                10,
+                25,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        map_item.attemptResize(
+            QgsLayoutSize(
+                190,
+                135,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        return map_item
+
     def run(self):
         dialog = LayoutSettingsDialog()
 
@@ -145,40 +171,19 @@ class QLayoutDesigner:
                 settings["layout_size"]
             )
 
+            self.create_extra_pages(
+                layout,
+                settings
+            )
+
             manager.addLayout(layout)
 
-            # =========================
-            # MAIN MAP
-            # =========================
-            map_item = QgsLayoutItemMap(layout)
-            map_item.setRect(20, 20, 200, 120)
-            map_item.setExtent(self.iface.mapCanvas().extent())
-            map_item.setScale(settings["scale"])
-
-            layout.addLayoutItem(map_item)
-
-            map_item.attemptMove(
-                QgsLayoutPoint(
-                    10,
-                    25,
-                    QgsUnitTypes.LayoutMillimeters
-                )
+            map_item = self.create_map_item(
+                layout,
+                settings
             )
 
-            map_item.attemptResize(
-                QgsLayoutSize(
-                    190,
-                    135,
-                    QgsUnitTypes.LayoutMillimeters
-                )
-            )
-
-            if settings["show_grid"]:
-                self.add_map_grid(map_item)
-
-            # =========================
             # TITLE
-            # =========================
             title = QgsLayoutItemLabel(layout)
             title.setText(settings["title"])
             title.setFont(QFont("Times New Roman", 20))
@@ -194,9 +199,7 @@ class QLayoutDesigner:
                 )
             )
 
-            # =========================
             # NORTH ARROW
-            # =========================
             if settings["show_north"]:
                 north_arrow = QgsLayoutItemPicture(layout)
 
@@ -227,9 +230,7 @@ class QLayoutDesigner:
                     )
                 )
 
-            # =========================
             # NUMERIC SCALE
-            # =========================
             if settings["show_numeric_scale"]:
                 scale_value = settings["scale"]
                 formatted_scale = f"{scale_value:,}".replace(",", ".")
@@ -252,9 +253,7 @@ class QLayoutDesigner:
                     )
                 )
 
-            # =========================
             # GRAPHIC SCALE BAR
-            # =========================
             if settings["show_scale_bar"]:
                 scale_bar = QgsLayoutItemScaleBar(layout)
                 scale_bar.setStyle("Double Box")
@@ -276,9 +275,7 @@ class QLayoutDesigner:
                     )
                 )
 
-            # =========================
             # LEGEND
-            # =========================
             if settings["show_legend"]:
                 legend = QgsLayoutItemLegend(layout)
                 legend.setTitle("Legend")
@@ -303,9 +300,7 @@ class QLayoutDesigner:
                     )
                 )
 
-            # =========================
             # CRS LABEL
-            # =========================
             crs_label = QgsLayoutItemLabel(layout)
             crs_text = project.crs().authid()
 
@@ -326,9 +321,7 @@ class QLayoutDesigner:
                 )
             )
 
-            # =========================
             # DESIGNER LABEL
-            # =========================
             designer_label = QgsLayoutItemLabel(layout)
             designer_label.setText(
                 f"Cartographic Editing: {settings['designer']}"
@@ -347,9 +340,7 @@ class QLayoutDesigner:
                 )
             )
 
-            # =========================
             # DATE LABEL
-            # =========================
             date_label = QgsLayoutItemLabel(layout)
             date_text = datetime.now().strftime("%d/%m/%Y")
 
@@ -370,21 +361,13 @@ class QLayoutDesigner:
                 )
             )
 
-            # =========================
-            # PREVIEW FIRST
-            # =========================
             self.iface.openLayoutDesigner(layout)
 
-            reply = QMessageBox.question(
+            QMessageBox.information(
                 None,
                 "QLayout Designer",
-                "The layout has been created successfully.\n\nDo you want to export it to PDF now?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                "The layout has been created successfully and is now open for editing."
             )
-
-            if reply == QMessageBox.Yes:
-                self.export_to_pdf(layout)
 
         except Exception as e:
             QMessageBox.critical(
