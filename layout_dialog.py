@@ -23,6 +23,24 @@ class LayoutSettingsDialog(QDialog):
 
         self.designer_input = QLineEdit()
         self.designer_input.setText("Nikolaos Sorkos")
+        
+        self.at_vh_input = QLineEdit()
+        self.at_vh_input.setText("")
+
+        self.nl_res_input = QLineEdit()
+        self.nl_res_input.setText("")
+
+        self.onb_input = QLineEdit()
+        self.onb_input.setText("6258")
+
+        self.asb_input = QLineEdit()
+        self.asb_input.setText("6")
+
+        self.sm_nr_input = QLineEdit()
+        self.sm_nr_input.setText("")
+
+        self.sheet_input = QLineEdit()
+        self.sheet_input.setText("Startseite")
 
         self.scale_combo = QComboBox()
         self.pages_spinbox = QSpinBox()
@@ -67,6 +85,12 @@ class LayoutSettingsDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.addRow("Map Title:", self.title_input)
         form_layout.addRow("Cartographic Editing:", self.designer_input)
+        form_layout.addRow("AT/Vh-Bez:", self.at_vh_input)
+        form_layout.addRow("NL/Res:", self.nl_res_input)
+        form_layout.addRow("ONB:", self.onb_input)
+        form_layout.addRow("ASB:", self.asb_input)
+        form_layout.addRow("SM Nr:", self.sm_nr_input)
+        form_layout.addRow("Blatt:", self.sheet_input)
         form_layout.addRow("Scale:", self.scale_combo)
         form_layout.addRow("Layout Size:", self.size_combo)
         form_layout.addRow("Number of Pages:", self.pages_spinbox)
@@ -101,6 +125,12 @@ class LayoutSettingsDialog(QDialog):
             "title": self.title_input.text(),
             "designer": self.designer_input.text(),
             "scale": scale_value,
+            "at_vh": self.at_vh_input.text(),
+            "nl_res": self.nl_res_input.text(),
+            "onb": self.onb_input.text(),
+            "asb": self.asb_input.text(),
+            "sm_nr": self.sm_nr_input.text(),
+            "sheet": self.sheet_input.text(),
             "layout_size": self.size_combo.currentText(),
             "show_legend": self.legend_checkbox.isChecked(),
             "show_north": self.north_checkbox.isChecked(),
@@ -108,4 +138,6 @@ class LayoutSettingsDialog(QDialog):
             "show_scale_bar": self.scale_bar_checkbox.isChecked(),
             "show_numeric_scale": self.numeric_scale_checkbox.isChecked(),
             "page_count": self.pages_spinbox.value()
+
+
         }
