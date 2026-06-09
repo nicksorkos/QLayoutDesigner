@@ -120,7 +120,9 @@ class QLayoutDesigner:
                 "Could not export PDF."
             )
 
-    def create_map_item(self, layout, settings):
+    def create_map_item(self, layout, settings, page_index=0):
+        page = layout.pageCollection().page(page_index)
+        page_y = page.pos().y()
         map_item = QgsLayoutItemMap(layout)
         map_item.setRect(20, 20, 200, 120)
         map_item.setExtent(self.iface.mapCanvas().extent())
@@ -129,7 +131,11 @@ class QLayoutDesigner:
         layout.addLayoutItem(map_item)
 
         map_item.attemptMove(
-            QgsLayoutPoint(10, 25, QgsUnitTypes.LayoutMillimeters)
+            QgsLayoutPoint(
+                10,
+                page_y + 25,
+                QgsUnitTypes.LayoutMillimeters
+             )
         )
 
         map_item.attemptResize(
@@ -228,7 +234,104 @@ class QLayoutDesigner:
 
         self.add_frame_label(layout, "Blatt:", 232, page_y + 211, 7, True)
         self.add_frame_label(layout, sheet_text, 257, page_y + 211, 7)
+    
+    
+    def create_north_arrow(self, layout, page_index=0):
+        page = layout.pageCollection().page(page_index)
+        page_y = page.pos().y()
 
+        north_arrow = QgsLayoutItemPicture(layout)
+
+        north_arrow_path = os.path.join(
+            QgsApplication.svgPaths()[0],
+            "arrows",
+            "NorthArrow_01.svg"
+        )
+
+        if os.path.exists(north_arrow_path):
+            north_arrow.setPicturePath(north_arrow_path)
+
+        layout.addLayoutItem(north_arrow)
+
+        north_arrow.attemptMove(
+            QgsLayoutPoint(
+                175,
+                page_y + 30,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        north_arrow.attemptResize(
+            QgsLayoutSize(
+                20,
+                20,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        return north_arrow
+    def create_scale_bar(self, layout, map_item, page_index=0):
+
+        page = layout.pageCollection().page(page_index)
+        page_y = page.pos().y()
+
+        scale_bar = QgsLayoutItemScaleBar(layout)
+
+        scale_bar.setStyle("Double Box")
+        scale_bar.setLinkedMap(map_item)
+
+        scale_bar.setUnits(QgsUnitTypes.DistanceMeters)
+
+        scale_bar.setNumberOfSegments(4)
+        scale_bar.setNumberOfSegmentsLeft(0)
+
+        scale_bar.setUnitsPerSegment(50)
+
+        scale_bar.setUnitLabel("m")
+
+        scale_bar.applyDefaultSize()
+
+        layout.addLayoutItem(scale_bar)
+
+        scale_bar.attemptMove(
+            QgsLayoutPoint(
+                10,
+                page_y + 172,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        return scale_bar
+    
+    def create_legend(self, layout, map_item, page_index=0):
+
+        page = layout.pageCollection().page(page_index)
+        page_y = page.pos().y()
+
+        legend = QgsLayoutItemLegend(layout)
+        legend.setTitle("Legend")
+        legend.setLinkedMap(map_item)
+        legend.setAutoUpdateModel(True)
+
+        layout.addLayoutItem(legend)
+
+        legend.attemptMove(
+            QgsLayoutPoint(
+                205,
+                page_y + 25,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        legend.attemptResize(
+            QgsLayoutSize(
+                80,
+                120,
+                QgsUnitTypes.LayoutMillimeters
+            )
+        )
+
+        return legend
     def run(self):
         dialog = LayoutSettingsDialog()
 
@@ -255,7 +358,18 @@ class QLayoutDesigner:
 
             manager.addLayout(layout)
 
-            map_item = self.create_map_item(layout, settings)
+            map_items = []
+            for page_index in range(settings["page_count"]):
+                map_item = self.create_map_item(
+                    layout,
+                    settings,
+                    page_index
+                )
+                
+                
+                map_items.append(map_item)
+                
+                main_map_item = map_items[0]
 
             title = QgsLayoutItemLabel(layout)
             title.setText(settings["title"])
@@ -269,59 +383,32 @@ class QLayoutDesigner:
             )
 
             if settings["show_north"]:
-                north_arrow = QgsLayoutItemPicture(layout)
 
-                north_arrow_path = os.path.join(
-                    QgsApplication.svgPaths()[0],
-                    "arrows",
-                    "NorthArrow_01.svg"
-                )
+                for page_index in range(settings["page_count"]):
+                    self.create_north_arrow(
+                        layout,
+                        page_index
+                    )
 
-                if os.path.exists(north_arrow_path):
-                    north_arrow.setPicturePath(north_arrow_path)
-
-                layout.addLayoutItem(north_arrow)
-
-                north_arrow.attemptMove(
-                    QgsLayoutPoint(175, 30, QgsUnitTypes.LayoutMillimeters)
-                )
-
-                north_arrow.attemptResize(
-                    QgsLayoutSize(20, 20, QgsUnitTypes.LayoutMillimeters)
-                )
 
             if settings["show_scale_bar"]:
-                scale_bar = QgsLayoutItemScaleBar(layout)
-                scale_bar.setStyle("Double Box")
-                scale_bar.setLinkedMap(map_item)
-                scale_bar.setUnits(QgsUnitTypes.DistanceMeters)
-                scale_bar.setNumberOfSegments(4)
-                scale_bar.setNumberOfSegmentsLeft(0)
-                scale_bar.setUnitsPerSegment(50)
-                scale_bar.setUnitLabel("m")
-                scale_bar.applyDefaultSize()
+                for page_index, map_item in enumerate(map_items):
+                    self.create_scale_bar(
+                        layout,
+                        map_item,
+                        page_index
+                    )
 
-                layout.addLayoutItem(scale_bar)
-
-                scale_bar.attemptMove(
-                    QgsLayoutPoint(10, 172, QgsUnitTypes.LayoutMillimeters)
-                )
 
             if settings["show_legend"]:
-                legend = QgsLayoutItemLegend(layout)
-                legend.setTitle("Legend")
-                legend.setLinkedMap(map_item)
-                legend.setAutoUpdateModel(True)
 
-                layout.addLayoutItem(legend)
+                for page_index, map_item in enumerate(map_items):
 
-                legend.attemptMove(
-                    QgsLayoutPoint(205, 25, QgsUnitTypes.LayoutMillimeters)
-                )
-
-                legend.attemptResize(
-                    QgsLayoutSize(80, 120, QgsUnitTypes.LayoutMillimeters)
-                )
+                    self.create_legend(
+                        layout,
+                        map_item,
+                        page_index
+                    )
 
             for page_index in range(settings["page_count"]):
                 self.create_title_block(layout, settings, page_index)
