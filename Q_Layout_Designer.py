@@ -18,6 +18,7 @@ from qgis.core import (
     QgsLayoutItemPicture,
     QgsLayoutItemPage,
     QgsLayoutItemShape,
+    QgsLayerTreeGroup,
     QgsLayoutPoint,
     QgsLayoutSize,
     QgsUnitTypes
@@ -101,7 +102,6 @@ class QLayoutDesigner:
             pdf_path += ".pdf"
 
         exporter = QgsLayoutExporter(layout)
-
         result = exporter.exportToPdf(
             pdf_path,
             QgsLayoutExporter.PdfExportSettings()
@@ -123,6 +123,7 @@ class QLayoutDesigner:
     def create_map_item(self, layout, settings, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
+
         map_item = QgsLayoutItemMap(layout)
         map_item.setRect(20, 20, 200, 120)
         map_item.setExtent(self.iface.mapCanvas().extent())
@@ -131,11 +132,7 @@ class QLayoutDesigner:
         layout.addLayoutItem(map_item)
 
         map_item.attemptMove(
-            QgsLayoutPoint(
-                10,
-                page_y + 25,
-                QgsUnitTypes.LayoutMillimeters
-             )
+            QgsLayoutPoint(10, page_y + 25, QgsUnitTypes.LayoutMillimeters)
         )
 
         map_item.attemptResize(
@@ -147,7 +144,6 @@ class QLayoutDesigner:
     def add_frame(self, layout, x, y, width, height):
         frame = QgsLayoutItemShape(layout)
         frame.setShapeType(QgsLayoutItemShape.Rectangle)
-
         layout.addLayoutItem(frame)
 
         frame.attemptMove(
@@ -205,8 +201,17 @@ class QLayoutDesigner:
         self.add_frame_label(layout, "NL/Res:", 57, page_y + 190, 7, True)
         self.add_frame_label(layout, settings["nl_res"], 82, page_y + 190, 7)
 
-        self.add_frame_label(layout, "ONB:", 57, page_y + 201, 7, True)
-        self.add_frame_label(layout, settings["onb"], 82, page_y + 201, 7)
+        self.add_frame_label(layout, "Company:", 57, page_y + 194, 6, True)
+        self.add_frame_label(layout, settings["company"], 82, page_y + 194, 6)
+
+        self.add_frame_label(layout, "Project:", 57, page_y + 198, 6, True)
+        self.add_frame_label(layout, settings["project"], 82, page_y + 198, 6)
+
+        self.add_frame_label(layout, "Client:", 57, page_y + 202, 6, True)
+        self.add_frame_label(layout, settings["client"], 82, page_y + 202, 6)
+
+        self.add_frame_label(layout, "ONB:", 57, page_y + 207, 7, True)
+        self.add_frame_label(layout, settings["onb"], 82, page_y + 207, 7)
 
         self.add_frame_label(layout, "ASB:", 167, page_y + 201, 7, True)
         self.add_frame_label(layout, settings["asb"], 190, page_y + 201, 7)
@@ -234,8 +239,32 @@ class QLayoutDesigner:
 
         self.add_frame_label(layout, "Blatt:", 232, page_y + 211, 7, True)
         self.add_frame_label(layout, sheet_text, 257, page_y + 211, 7)
-    
-    
+
+    def create_logo(self, layout, settings, page_index=0):
+        logo_path = settings.get("logo_path", "")
+
+        if not logo_path or not os.path.exists(logo_path):
+            return None
+
+        page = layout.pageCollection().page(page_index)
+        page_y = page.pos().y()
+
+        logo = QgsLayoutItemPicture(layout)
+        logo.setPicturePath(logo_path)
+
+        layout.addLayoutItem(logo)
+
+        logo.attemptMove(
+            QgsLayoutPoint(58, page_y + 193, QgsUnitTypes.LayoutMillimeters)
+        )
+
+        logo.attemptResize(
+            QgsLayoutSize(90, 28, QgsUnitTypes.LayoutMillimeters)
+        )
+
+        logo.setZValue(100)
+        return logo
+
     def create_north_arrow(self, layout, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
@@ -243,95 +272,128 @@ class QLayoutDesigner:
         north_arrow = QgsLayoutItemPicture(layout)
 
         north_arrow_path = os.path.join(
-            QgsApplication.svgPaths()[0],
-            "arrows",
-            "NorthArrow_01.svg"
+            os.path.dirname(__file__),
+            "north_arrow.png"
         )
 
         if os.path.exists(north_arrow_path):
             north_arrow.setPicturePath(north_arrow_path)
+        else:
+            north_arrow_paths = [
+                os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_01.svg"),
+                os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_02.svg"),
+                os.path.join(QgsApplication.svgPaths()[0], "arrows", "north_arrow.svg"),
+                os.path.join(QgsApplication.svgPaths()[0], "north_arrows", "NorthArrow_01.svg"),
+            ]
+
+            for path in north_arrow_paths:
+                if os.path.exists(path):
+                    north_arrow.setPicturePath(path)
+                    break
 
         layout.addLayoutItem(north_arrow)
 
         north_arrow.attemptMove(
-            QgsLayoutPoint(
-                175,
-                page_y + 30,
-                QgsUnitTypes.LayoutMillimeters
-            )
+            QgsLayoutPoint(21, page_y + 183, QgsUnitTypes.LayoutMillimeters)
         )
 
         north_arrow.attemptResize(
-            QgsLayoutSize(
-                20,
-                20,
-                QgsUnitTypes.LayoutMillimeters
-            )
+            QgsLayoutSize(22, 28, QgsUnitTypes.LayoutMillimeters)
         )
 
+        north_arrow.setZValue(100)
         return north_arrow
-    def create_scale_bar(self, layout, map_item, page_index=0):
 
+    def create_scale_bar(self, layout, map_item, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
 
         scale_bar = QgsLayoutItemScaleBar(layout)
-
         scale_bar.setStyle("Double Box")
         scale_bar.setLinkedMap(map_item)
-
         scale_bar.setUnits(QgsUnitTypes.DistanceMeters)
-
         scale_bar.setNumberOfSegments(4)
         scale_bar.setNumberOfSegmentsLeft(0)
-
         scale_bar.setUnitsPerSegment(50)
-
         scale_bar.setUnitLabel("m")
-
         scale_bar.applyDefaultSize()
 
         layout.addLayoutItem(scale_bar)
 
         scale_bar.attemptMove(
-            QgsLayoutPoint(
-                10,
-                page_y + 172,
-                QgsUnitTypes.LayoutMillimeters
-            )
+            QgsLayoutPoint(10, page_y + 172, QgsUnitTypes.LayoutMillimeters)
         )
 
         return scale_bar
-    
-    def create_legend(self, layout, map_item, page_index=0):
 
+    def create_smart_legend_root(self):
+        project = QgsProject.instance()
+        root = project.layerTreeRoot()
+
+        legend_root = QgsLayerTreeGroup("Smart Legend")
+
+        excluded_keywords = [
+            "osm",
+            "openstreetmap",
+            "google",
+            "satellite",
+            "bing",
+            "esri",
+            "xyz",
+            "basemap",
+            "quickmapservices",
+            "carto",
+            "stamen",
+            "maptiler",
+            "terrain",
+            "world imagery"
+        ]
+
+        for layer in project.mapLayers().values():
+            layer_name_lower = layer.name().lower()
+
+            if any(keyword in layer_name_lower for keyword in excluded_keywords):
+                continue
+
+            tree_layer = root.findLayer(layer.id())
+
+            if tree_layer is not None and not tree_layer.itemVisibilityChecked():
+                continue
+
+            legend_root.addLayer(layer)
+
+        return legend_root
+
+    def create_legend(self, layout, map_item, settings, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
 
         legend = QgsLayoutItemLegend(layout)
         legend.setTitle("Legend")
         legend.setLinkedMap(map_item)
-        legend.setAutoUpdateModel(True)
+
+        if settings.get("smart_legend", False):
+            try:
+                legend.setAutoUpdateModel(False)
+                smart_root = self.create_smart_legend_root()
+                legend.model().setRootGroup(smart_root)
+            except Exception:
+                legend.setAutoUpdateModel(True)
+        else:
+            legend.setAutoUpdateModel(True)
 
         layout.addLayoutItem(legend)
 
         legend.attemptMove(
-            QgsLayoutPoint(
-                205,
-                page_y + 25,
-                QgsUnitTypes.LayoutMillimeters
-            )
+            QgsLayoutPoint(205, page_y + 25, QgsUnitTypes.LayoutMillimeters)
         )
 
         legend.attemptResize(
-            QgsLayoutSize(
-                80,
-                120,
-                QgsUnitTypes.LayoutMillimeters
-            )
+            QgsLayoutSize(80, 120, QgsUnitTypes.LayoutMillimeters)
         )
 
         return legend
+
     def run(self):
         dialog = LayoutSettingsDialog()
 
@@ -359,66 +421,43 @@ class QLayoutDesigner:
             manager.addLayout(layout)
 
             map_items = []
+
             for page_index in range(settings["page_count"]):
                 map_item = self.create_map_item(
                     layout,
                     settings,
                     page_index
                 )
-                
-                
                 map_items.append(map_item)
-                
-                main_map_item = map_items[0]
-
-            title = QgsLayoutItemLabel(layout)
-            title.setText(settings["title"])
-            title.setFont(QFont("Times New Roman", 20))
-            title.adjustSizeToText()
-
-            layout.addLayoutItem(title)
-
-            title.attemptMove(
-                QgsLayoutPoint(10, 8, QgsUnitTypes.LayoutMillimeters)
-            )
-
-            if settings["show_north"]:
-
-                for page_index in range(settings["page_count"]):
-                    self.create_north_arrow(
-                        layout,
-                        page_index
-                    )
-
 
             if settings["show_scale_bar"]:
                 for page_index, map_item in enumerate(map_items):
-                    self.create_scale_bar(
-                        layout,
-                        map_item,
-                        page_index
-                    )
-
+                    self.create_scale_bar(layout, map_item, page_index)
 
             if settings["show_legend"]:
-
                 for page_index, map_item in enumerate(map_items):
-
-                    self.create_legend(
-                        layout,
-                        map_item,
-                        page_index
-                    )
+                    self.create_legend(layout, map_item, settings, page_index)
 
             for page_index in range(settings["page_count"]):
                 self.create_title_block(layout, settings, page_index)
 
-            self.iface.openLayoutDesigner(layout)
+            for page_index in range(settings["page_count"]):
+                self.create_logo(layout, settings, page_index)
+
+            if settings["show_north"]:
+                for page_index in range(settings["page_count"]):
+                    self.create_north_arrow(layout, page_index)
+
+            if settings["export_pdf"]:
+                self.export_to_pdf(layout)
+
+            if settings["open_designer"]:
+                self.iface.openLayoutDesigner(layout)
 
             QMessageBox.information(
                 None,
                 "QLayout Designer",
-                "The layout has been created successfully and is now open for editing."
+                "The layout has been created successfully."
             )
 
         except Exception as e:
