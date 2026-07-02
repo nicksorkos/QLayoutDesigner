@@ -4,13 +4,13 @@ from datetime import datetime
 from .layout_dialog import LayoutSettingsDialog
 
 from qgis.PyQt.QtWidgets import QAction, QMessageBox, QFileDialog
-from qgis.PyQt.QtGui import QIcon, QFont
+from qgis.PyQt.QtGui import QIcon, QFont, QColor
+from qgis.PyQt.QtCore import Qt
 
 from qgis.core import (
     QgsApplication,
     QgsProject,
     QgsPrintLayout,
-    QgsLayoutExporter,
     QgsLayoutItemMap,
     QgsLayoutItemLabel,
     QgsLayoutItemLegend,
@@ -18,7 +18,6 @@ from qgis.core import (
     QgsLayoutItemPicture,
     QgsLayoutItemPage,
     QgsLayoutItemShape,
-    QgsLayerTreeGroup,
     QgsLayoutPoint,
     QgsLayoutSize,
     QgsUnitTypes
@@ -87,39 +86,6 @@ class QLayoutDesigner:
 
             page_collection.addPage(new_page)
 
-    def export_to_pdf(self, layout):
-        pdf_path, _ = QFileDialog.getSaveFileName(
-            None,
-            "Export Layout as PDF",
-            "",
-            "PDF Files (*.pdf)"
-        )
-
-        if not pdf_path:
-            return
-
-        if not pdf_path.lower().endswith(".pdf"):
-            pdf_path += ".pdf"
-
-        exporter = QgsLayoutExporter(layout)
-        result = exporter.exportToPdf(
-            pdf_path,
-            QgsLayoutExporter.PdfExportSettings()
-        )
-
-        if result == QgsLayoutExporter.Success:
-            QMessageBox.information(
-                None,
-                "Export Successful",
-                f"PDF exported:\n{pdf_path}"
-            )
-        else:
-            QMessageBox.warning(
-                None,
-                "Export Failed",
-                "Could not export PDF."
-            )
-
     def create_map_item(self, layout, settings, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
@@ -141,6 +107,18 @@ class QLayoutDesigner:
 
         return map_item
 
+    def style_frame(self, frame):
+        if hasattr(frame, "setStrokeWidth"):
+            frame.setStrokeWidth(0.30)
+        if hasattr(frame, "setStrokeColor"):
+            frame.setStrokeColor(QColor(0, 0, 0))
+        elif hasattr(frame, "setBorderColor"):
+            frame.setBorderColor(QColor(0, 0, 0))
+        if hasattr(frame, "setLineJoinStyle"):
+            frame.setLineJoinStyle(Qt.MiterJoin)
+        if hasattr(frame, "setFillColor"):
+            frame.setFillColor(QColor(255, 255, 255, 0))
+
     def add_frame(self, layout, x, y, width, height):
         frame = QgsLayoutItemShape(layout)
         frame.setShapeType(QgsLayoutItemShape.Rectangle)
@@ -154,6 +132,7 @@ class QLayoutDesigner:
             QgsLayoutSize(width, height, QgsUnitTypes.LayoutMillimeters)
         )
 
+        self.style_frame(frame)
         return frame
 
     def add_frame_label(self, layout, text, x, y, font_size=8, bold=False):
@@ -173,123 +152,227 @@ class QLayoutDesigner:
 
         return label
 
+    def add_horizontal_line(self, layout, x, y, width, thickness=0.30):
+        line = QgsLayoutItemShape(layout)
+        line.setShapeType(QgsLayoutItemShape.Rectangle)
+        layout.addLayoutItem(line)
+
+        line.attemptMove(
+            QgsLayoutPoint(x, y, QgsUnitTypes.LayoutMillimeters)
+        )
+        line.attemptResize(
+            QgsLayoutSize(width, thickness, QgsUnitTypes.LayoutMillimeters)
+        )
+
+        if hasattr(line, "setFillColor"):
+            line.setFillColor(QColor(0, 0, 0))
+        if hasattr(line, "setStrokeWidth"):
+            line.setStrokeWidth(0)
+
+        return line
+
+    def add_vertical_line(self, layout, x, y, height, thickness=0.30):
+        line = QgsLayoutItemShape(layout)
+        line.setShapeType(QgsLayoutItemShape.Rectangle)
+        layout.addLayoutItem(line)
+
+        line.attemptMove(
+            QgsLayoutPoint(x, y, QgsUnitTypes.LayoutMillimeters)
+        )
+        line.attemptResize(
+            QgsLayoutSize(thickness, height, QgsUnitTypes.LayoutMillimeters)
+        )
+
+        if hasattr(line, "setFillColor"):
+            line.setFillColor(QColor(0, 0, 0))
+        if hasattr(line, "setStrokeWidth"):
+            line.setStrokeWidth(0)
+
+        return line
+
+    def create_info_footer(self, layout, settings, page_index=0):
+        page = layout.pageCollection().page(page_index)
+        page_x = page.pos().x()
+        page_y = page.pos().y()
+        page_size = page.pageSize()
+
+        footer_height = 90 if "A3" in settings["layout_size"] else 70
+        footer_width = page_size.width() - 20
+        footer_y = page_y + page_size.height() - footer_height - 10
+        footer_x = page_x + 10
+
+        self.add_frame(layout, footer_x, footer_y, footer_width, footer_height)
+
+        fields = [
+            ("Datum:", datetime.now().strftime("%d/%m/%Y")),
+            ("Maßstab:", f"1:{settings['scale']:,}".replace(",", ".")),
+            ("Planer:", settings["designer"]),
+            ("SM Nr:", settings["sm_nr"]),
+            ("Bezugssys:", QgsProject.instance().crs().authid()),
+            ("ONB:", settings["onb"]),
+            ("ASB:", settings["asb"]),
+            ("AT/Vh-Bez:", settings["at_vh"]),
+            ("NL/Res:", settings["nl_res"]),
+        ]
+
+        x = footer_x + 4
+        y = footer_y + 4
+        for label_text, value_text in fields:
+            self.add_frame_label(layout, label_text, x, y, 7, True)
+            self.add_frame_label(layout, value_text, x + 34, y, 7)
+            y += 7
+
+    def add_line(self, layout, x, y, width, height):
+        line = QgsLayoutItemShape(layout)
+        line.setShapeType(QgsLayoutItemShape.Rectangle)
+        layout.addLayoutItem(line)
+
+        line.attemptMove(
+            QgsLayoutPoint(x, y, QgsUnitTypes.LayoutMillimeters)
+        )
+        line.attemptResize(
+            QgsLayoutSize(width, height, QgsUnitTypes.LayoutMillimeters)
+        )
+
+        if hasattr(line, "setFillColor"):
+            line.setFillColor(QColor(0, 0, 0))
+        if hasattr(line, "setStrokeWidth"):
+            line.setStrokeWidth(0)
+        if hasattr(line, "setStrokeColor"):
+            line.setStrokeColor(QColor(0, 0, 0))
+        return line
+
     def create_title_block(self, layout, settings, page_index=0):
+        if page_index > 0:
+            return
+
         page = layout.pageCollection().page(page_index)
+        page_x = page.pos().x()
         page_y = page.pos().y()
+        page_size = page.pageSize()
 
-        date_text = datetime.now().strftime("%d/%m/%Y")
-        scale_text = f"{settings['scale']:,}".replace(",", ".")
-        sheet_text = f"{page_index + 1} / {settings['page_count']}"
+        block_height = 62
+        block_x = page_x + 10
+        block_y = page_y + page_size.height() - block_height - 10
+        block_width = page_size.width() - 20
 
-        self.add_frame(layout, 10, page_y + 180, 277, 35)
-        self.add_frame(layout, 10, page_y + 180, 45, 35)
-        self.add_frame(layout, 55, page_y + 197, 90, 18)
+        left_width = 55
+        right_width = 105
+        center_width = block_width - left_width - right_width
 
-        self.add_frame(layout, 55, page_y + 180, 110, 8)
-        self.add_frame(layout, 55, page_y + 188, 110, 9)
-        self.add_frame(layout, 55, page_y + 197, 110, 18)
+        left_x = block_x
+        center_x = left_x + left_width
+        right_x = center_x + center_width
 
-        self.add_frame(layout, 165, page_y + 180, 65, 17)
-        self.add_frame(layout, 165, page_y + 197, 65, 18)
+        self.add_frame(layout, block_x, block_y, block_width, block_height)
+        self.add_frame(layout, left_x, block_y, left_width, block_height)
+        self.add_frame(layout, center_x, block_y, center_width, block_height)
+        self.add_frame(layout, right_x, block_y, right_width, block_height)
 
-        self.add_frame(layout, 230, page_y + 180, 57, 17)
-        self.add_frame(layout, 230, page_y + 197, 57, 18)
+        self.add_frame_label(layout, "N", left_x + left_width / 2, block_y + 3, 12, True)
 
-        self.add_frame_label(layout, "AT/Vh-Bez:", 57, page_y + 182, 7, True)
-        self.add_frame_label(layout, settings["at_vh"], 82, page_y + 182, 7)
+        arrow_path = self.get_north_arrow_path()
+        if arrow_path:
+            arrow = QgsLayoutItemPicture(layout)
+            arrow.setPicturePath(arrow_path)
+            layout.addLayoutItem(arrow)
+            arrow_width = 24
+            arrow_height = 28
+            arrow.attemptResize(QgsLayoutSize(arrow_width, arrow_height, QgsUnitTypes.LayoutMillimeters))
+            arrow.attemptMove(
+                QgsLayoutPoint(
+                    left_x + (left_width - arrow_width) / 2,
+                    block_y + 18,
+                    QgsUnitTypes.LayoutMillimeters
+                )
+            )
 
-        self.add_frame_label(layout, "NL/Res:", 57, page_y + 190, 7, True)
-        self.add_frame_label(layout, settings["nl_res"], 82, page_y + 190, 7)
+        row_height = 10
+        label_left = center_x + 2
+        value_left = center_x + 46
 
-        self.add_frame_label(layout, "Company:", 57, page_y + 194, 6, True)
-        self.add_frame_label(layout, settings["company"], 82, page_y + 194, 6)
+        self.add_vertical_line(layout, center_x + 44, block_y, row_height * 3)
+        self.add_horizontal_line(layout, center_x, block_y + row_height, center_width)
+        self.add_horizontal_line(layout, center_x, block_y + row_height * 2, center_width)
+        self.add_horizontal_line(layout, center_x, block_y + row_height * 3, center_width)
 
-        self.add_frame_label(layout, "Project:", 57, page_y + 198, 6, True)
-        self.add_frame_label(layout, settings["project"], 82, page_y + 198, 6)
+        self.add_frame_label(layout, "AT/Vh-Bez:", label_left, block_y + 3, 8, True)
+        self.add_frame_label(layout, settings.get("at_vh", ""), value_left, block_y + 3, 8)
+        self.add_frame_label(layout, "NL/Res:", label_left, block_y + 3 + row_height, 8, True)
+        self.add_frame_label(layout, settings.get("nl_res", ""), value_left, block_y + 3 + row_height, 8)
+        self.add_frame_label(layout, "ONB:", label_left, block_y + 3 + row_height * 2, 8, True)
+        self.add_frame_label(layout, settings.get("onb", ""), value_left, block_y + 3 + row_height * 2, 8)
 
-        self.add_frame_label(layout, "Client:", 57, page_y + 202, 6, True)
-        self.add_frame_label(layout, settings["client"], 82, page_y + 202, 6)
+        logo_area_y = block_y + row_height * 3
+        logo_area_height = block_height - row_height * 3
+        self.add_frame(layout, center_x, logo_area_y, center_width, logo_area_height)
 
-        self.add_frame_label(layout, "ONB:", 57, page_y + 207, 7, True)
-        self.add_frame_label(layout, settings["onb"], 82, page_y + 207, 7)
-
-        self.add_frame_label(layout, "ASB:", 167, page_y + 201, 7, True)
-        self.add_frame_label(layout, settings["asb"], 190, page_y + 201, 7)
-
-        self.add_frame_label(layout, "Planer:", 167, page_y + 206, 7, True)
-        self.add_frame_label(layout, settings["designer"], 190, page_y + 206, 7)
-
-        self.add_frame_label(layout, "Datum:", 167, page_y + 211, 7, True)
-        self.add_frame_label(layout, date_text, 190, page_y + 211, 7)
-
-        self.add_frame_label(layout, "SM Nr:", 232, page_y + 182, 7, True)
-        self.add_frame_label(layout, settings["sm_nr"], 257, page_y + 182, 7)
-
-        self.add_frame_label(layout, "Bezugssys:", 232, page_y + 201, 7, True)
-        self.add_frame_label(
-            layout,
-            QgsProject.instance().crs().authid(),
-            257,
-            page_y + 201,
-            7
-        )
-
-        self.add_frame_label(layout, "Maßstab:", 232, page_y + 206, 7, True)
-        self.add_frame_label(layout, f"1:{scale_text}", 257, page_y + 206, 7)
-
-        self.add_frame_label(layout, "Blatt:", 232, page_y + 211, 7, True)
-        self.add_frame_label(layout, sheet_text, 257, page_y + 211, 7)
-
-    def create_logo(self, layout, settings, page_index=0):
         logo_path = settings.get("logo_path", "")
+        if logo_path and os.path.exists(logo_path):
+            logo_item = QgsLayoutItemPicture(layout)
+            logo_item.setPicturePath(logo_path)
+            layout.addLayoutItem(logo_item)
+            logo_width = center_width - 10
+            logo_height = logo_area_height - 8
+            if logo_width > 0 and logo_height > 0:
+                logo_item.attemptResize(QgsLayoutSize(logo_width, logo_height, QgsUnitTypes.LayoutMillimeters))
+                logo_item.attemptMove(
+                    QgsLayoutPoint(center_x + 5, logo_area_y + 4, QgsUnitTypes.LayoutMillimeters)
+                )
 
-        if not logo_path or not os.path.exists(logo_path):
-            return None
+        right_label_width = 42
+        right_value_left = right_x + right_label_width + 2
+        right_row_height = 10
 
-        page = layout.pageCollection().page(page_index)
-        page_y = page.pos().y()
+        self.add_vertical_line(layout, right_x + right_label_width, block_y, right_row_height * 6)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height, right_width)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height * 2, right_width)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height * 3, right_width)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height * 4, right_width)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height * 5, right_width)
+        self.add_horizontal_line(layout, right_x, block_y + right_row_height * 6, right_width)
 
-        logo = QgsLayoutItemPicture(layout)
-        logo.setPicturePath(logo_path)
+        self.add_frame_label(layout, "AsB:", right_x + 2, block_y + 3, 8, True)
+        self.add_frame_label(layout, settings.get("asb", ""), right_value_left, block_y + 3, 8)
+        self.add_frame_label(layout, "Planer:", right_x + 2, block_y + 3 + right_row_height, 8, True)
+        self.add_frame_label(layout, settings.get("planer", ""), right_value_left, block_y + 3 + right_row_height, 8)
+        self.add_frame_label(layout, "Datum:", right_x + 2, block_y + 3 + right_row_height * 2, 8, True)
+        self.add_frame_label(layout, settings.get("datum", "") or datetime.now().strftime("%d/%m/%Y"), right_value_left, block_y + 3 + right_row_height * 2, 8)
+        self.add_frame_label(layout, "Bezugssys:", right_x + 2, block_y + 3 + right_row_height * 3, 8, True)
+        self.add_frame_label(layout, settings.get("coordinate_system", "") or QgsProject.instance().crs().authid(), right_value_left, block_y + 3 + right_row_height * 3, 8)
+        self.add_frame_label(layout, "Maßstab:", right_x + 2, block_y + 3 + right_row_height * 4, 8, True)
+        self.add_frame_label(layout, f"1:{settings.get('scale', 0):,}".replace(",", "."), right_value_left, block_y + 3 + right_row_height * 4, 8)
+        self.add_frame_label(layout, "Blatt:", right_x + 2, block_y + 3 + right_row_height * 5, 8, True)
+        self.add_frame_label(layout, settings.get("sheet", str(page_index + 1)), right_value_left, block_y + 3 + right_row_height * 5, 8)
 
-        layout.addLayoutItem(logo)
+    def create_client_image(self, layout, settings, page_index=0):
+        return None
 
-        logo.attemptMove(
-            QgsLayoutPoint(58, page_y + 193, QgsUnitTypes.LayoutMillimeters)
-        )
+    def get_north_arrow_path(self):
+        plugin_dir = os.path.dirname(__file__)
+        candidates = [
+            os.path.join(plugin_dir, "north_arrow.png"),
+            os.path.join(plugin_dir, "north_arrow.svg"),
+            os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_01.svg"),
+            os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_02.svg"),
+            os.path.join(QgsApplication.svgPaths()[0], "arrows", "north_arrow.svg"),
+            os.path.join(QgsApplication.svgPaths()[0], "north_arrows", "NorthArrow_01.svg"),
+        ]
 
-        logo.attemptResize(
-            QgsLayoutSize(90, 28, QgsUnitTypes.LayoutMillimeters)
-        )
-
-        logo.setZValue(100)
-        return logo
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return None
 
     def create_north_arrow(self, layout, page_index=0):
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
 
         north_arrow = QgsLayoutItemPicture(layout)
+        north_arrow_path = self.get_north_arrow_path()
 
-        north_arrow_path = os.path.join(
-            os.path.dirname(__file__),
-            "north_arrow.png"
-        )
-
-        if os.path.exists(north_arrow_path):
+        if north_arrow_path:
             north_arrow.setPicturePath(north_arrow_path)
-        else:
-            north_arrow_paths = [
-                os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_01.svg"),
-                os.path.join(QgsApplication.svgPaths()[0], "arrows", "NorthArrow_02.svg"),
-                os.path.join(QgsApplication.svgPaths()[0], "arrows", "north_arrow.svg"),
-                os.path.join(QgsApplication.svgPaths()[0], "north_arrows", "NorthArrow_01.svg"),
-            ]
-
-            for path in north_arrow_paths:
-                if os.path.exists(path):
-                    north_arrow.setPicturePath(path)
-                    break
 
         layout.addLayoutItem(north_arrow)
 
@@ -326,45 +409,14 @@ class QLayoutDesigner:
 
         return scale_bar
 
-    def create_smart_legend_root(self):
-        project = QgsProject.instance()
-        root = project.layerTreeRoot()
-
-        legend_root = QgsLayerTreeGroup("Smart Legend")
-
-        excluded_keywords = [
-            "osm",
-            "openstreetmap",
-            "google",
-            "satellite",
-            "bing",
-            "esri",
-            "xyz",
-            "basemap",
-            "quickmapservices",
-            "carto",
-            "stamen",
-            "maptiler",
-            "terrain",
-            "world imagery"
-        ]
-
-        for layer in project.mapLayers().values():
-            layer_name_lower = layer.name().lower()
-
-            if any(keyword in layer_name_lower for keyword in excluded_keywords):
-                continue
-
-            tree_layer = root.findLayer(layer.id())
-
-            if tree_layer is not None and not tree_layer.itemVisibilityChecked():
-                continue
-
-            legend_root.addLayer(layer)
-
-        return legend_root
-
     def create_legend(self, layout, map_item, settings, page_index=0):
+        if page_index is None:
+            page_index = 0
+
+        page_count = layout.pageCollection().pageCount()
+        if page_index >= page_count or page_index < 0:
+            page_index = 0
+
         page = layout.pageCollection().page(page_index)
         page_y = page.pos().y()
 
@@ -372,15 +424,7 @@ class QLayoutDesigner:
         legend.setTitle("Legend")
         legend.setLinkedMap(map_item)
 
-        if settings.get("smart_legend", False):
-            try:
-                legend.setAutoUpdateModel(False)
-                smart_root = self.create_smart_legend_root()
-                legend.model().setRootGroup(smart_root)
-            except Exception:
-                legend.setAutoUpdateModel(True)
-        else:
-            legend.setAutoUpdateModel(True)
+        legend.setAutoUpdateModel(True)
 
         layout.addLayoutItem(legend)
 
@@ -420,38 +464,31 @@ class QLayoutDesigner:
 
             manager.addLayout(layout)
 
-            map_items = []
-
+            map_pages = []
+            legend_page = 1 if settings["page_count"] > 1 and settings["show_legend"] else 0
             for page_index in range(settings["page_count"]):
-                map_item = self.create_map_item(
-                    layout,
-                    settings,
-                    page_index
-                )
-                map_items.append(map_item)
+                if settings["page_count"] > 1 and page_index == legend_page:
+                    continue
+                map_item = self.create_map_item(layout, settings, page_index)
+                map_pages.append((page_index, map_item))
 
             if settings["show_scale_bar"]:
-                for page_index, map_item in enumerate(map_items):
+                for page_index, map_item in map_pages:
                     self.create_scale_bar(layout, map_item, page_index)
 
             if settings["show_legend"]:
-                for page_index, map_item in enumerate(map_items):
-                    self.create_legend(layout, map_item, settings, page_index)
+                legend_map_item = map_pages[0][1] if map_pages else None
+                if legend_map_item is not None:
+                    self.create_legend(layout, legend_map_item, settings, legend_page)
 
             for page_index in range(settings["page_count"]):
                 self.create_title_block(layout, settings, page_index)
 
-            for page_index in range(settings["page_count"]):
-                self.create_logo(layout, settings, page_index)
-
             if settings["show_north"]:
-                for page_index in range(settings["page_count"]):
+                for page_index, _ in map_pages:
                     self.create_north_arrow(layout, page_index)
 
-            if settings["export_pdf"]:
-                self.export_to_pdf(layout)
-
-            if settings["open_designer"]:
+            if settings.get("open_designer", False):
                 self.iface.openLayoutDesigner(layout)
 
             QMessageBox.information(

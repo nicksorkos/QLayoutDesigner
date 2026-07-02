@@ -1,12 +1,15 @@
 [general]
-name=QLayoutDesigner
+name=QLayout Designer
 qgisMinimumVersion=3.34
-description=Automatic map layout generator for Qgis
-version=0.1
-author=Nikolas Sorkos
-eimail=nicksorkos@gmail.com
-about=Creates professional map layouts automatically
+description=Automatic QGIS layout generator with pro title block, legend control, north arrow, scale bar, multi-page support
+version=1.0.1
+author=Nikolaos Sorkos
+email=nicksorkos@gmail.com
+about=QLayout Designer automatically creates professional QGIS map layouts with map frame, dynamic title block, logo support, legend, smart legend, north arrow, graphic scale bar, multi-page support and optional PDF export.
 category=Cartography
-icon=QLayoutDesigner.png
-experimental=True
-
+icon=icon.png
+experimental=False
+deprecated=False
+repository=https://github.com/nicksorkos/QLayoutDesigner
+tracker=https://github.com/nicksorkos/QLayoutDesigner/issues
+homepage=https://github.com/nicksorkos/QLayoutDesigner
