@@ -59,29 +59,7 @@ The plugin generates a structured title block with dynamic fields such as:
 
 These fields are entered through the plugin dialog and automatically placed inside the generated layout.
 
----
 
-## Smart Legend
-
-The Smart Legend option helps keep the legend cleaner by excluding common basemap layers such as:
-
-* OpenStreetMap
-* Google
-* Satellite
-* Bing
-* ESRI
-* XYZ
-* Basemap
-* QuickMapServices
-* Carto
-* Stamen
-* MapTiler
-* Terrain
-* World Imagery
-
-This is useful when working with background map services that should not appear in the final map legend.
-
----
 
 ## Installation
 
